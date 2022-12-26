@@ -76,3 +76,7 @@ Next, the accuracy of the distributions is tested using cross-validation and
 functions from `test_accuracy.py`. Testing accuracy is used to tune the  
 hyperparameters described in the white paper. Finally, the distributions are
 plotted using functions from `plot.py`.
+
+Note that I haven't uploaded my scraped data to the repo, nor the directory I 
+use for caching intermittently (a directory called `pickle_wrap_cache`, 
+which the code sometimes references).
