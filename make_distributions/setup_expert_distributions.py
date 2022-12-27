@@ -1,19 +1,20 @@
 import os
-import numpy as np
+from copy import deepcopy
+from pathlib import Path
 
+import numpy as np
+from colorama import Fore
+from tqdm import tqdm
+
+from scrape_prepare_input.organize.organize_input import get_df_rankings_scores
+from make_distributions.test_accuracy import get_test_accuracy
+from make_distributions.pd_utils import get_train_test, get_train_test_single_year
+from make_distributions.expert_processing import get_best_experts, add_mean_expert
 from make_distributions.density import get_density_array
 from make_distributions.expert_distribution import Expert_Distribution
 from make_distributions.plot import save_ED_plot
 from make_distributions.utils import pickle_wrap, PKL_CACHE
 
-from colorama import Fore
-from scrape_prepare_input.organize.organize_input import get_df_rankings_scores
-from make_distributions.test_accuracy import get_test_accuracy
-from make_distributions.pd_utils import get_train_test, get_train_test_single_year
-from make_distributions.expert_processing import get_best_experts, add_mean_expert
-from copy import deepcopy
-from pathlib import Path
-from tqdm import tqdm
 
 np.random.seed(0)
 
@@ -220,7 +221,11 @@ def get_expert_distribution(df_train, experts_used, pos='RB', max_rank=48,
 
     :param df_train: Dataframe containing all the ranking and scores data
     :param experts_used: Expert names whose rankings are used. Usually just
-        ['mean_expert']
+        ['mean_expert'], with 'mean_expert' being treated as an expert.
+        In principle, this code can be used with many experts, like ['tom',
+        'bill'], and the resulting Expert_Distribution object will hold onto all
+        of them. However, the white paper describes using only a single expert,
+        'mean_expert'.
     :param pos: Position (str)
     :param max_rank: Worst ranked considered (higher rank = worse)
     :param concat_proximal_ranks: If neighboring ranks are concatenated, how
@@ -249,11 +254,13 @@ def get_expert_distribution(df_train, experts_used, pos='RB', max_rank=48,
         x_density_pts = np.linspace(-10, 40, density_resolution)
     else:
         x_density_pts = np.linspace(0, 50, density_resolution)
-    ars = []
+    ar_density_l = []
     good_experts = []
     assert len(experts_used), f'Error, no experts used: {experts_used=}'
+    # This loop calculates the density distributions for each expert.
+    #   However, the white paper only uses one expert, 'mean_expert'
     for expert in tqdm(experts_used, desc='Getting density_ar for each expert'):
-        ar = get_density_array(df_train, expert, pos, x_density_pts,
+        ar_density = get_density_array(df_train, expert, pos, x_density_pts,
                                x_cum_tiles, max_rank=max_rank,
                                num_neighbors_concat=concat_proximal_ranks,
                                do_CV_density=do_CV_density,
@@ -261,13 +268,13 @@ def get_expert_distribution(df_train, experts_used, pos='RB', max_rank=48,
                                concat_correction=concat_correction,
                                vert_smooth_amt=vert_smooth_amt,
                                vert_smooth_correct=vert_smooth_correct)
-        ar = ar[:max_rank, :]
-        ars.append(ar)
+        ar_density = ar_density[:max_rank, :]
+        ar_density_l.append(ar_density)
         good_experts.append(expert)
-    ar_all_experts = np.array(ars)
+    ar_density_all = np.array(ar_density_l)
     year_end = df_train.index.get_level_values(1).max()
     year_st = df_train.index.get_level_values(1).min()
-    ED = Expert_Distribution(good_experts, ar_all_experts, x_density_pts,
+    ED = Expert_Distribution(good_experts, ar_density_all, x_density_pts,
                              x_cum_tiles,
                              pos, max_rank, year_st, year_end,
                              plot_name=plot_name)

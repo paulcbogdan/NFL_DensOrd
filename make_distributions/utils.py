@@ -1,13 +1,12 @@
-import numpy as np
+from random import random, shuffle
 from time import time
 import pickle
 import os
-from random import random, shuffle
+
+import numpy as np
 import pandas as pd
 import ntpath
 from colorama import Fore
-import datasize
-import sys
 
 '''
 Not commented
@@ -23,25 +22,24 @@ def setup_pd():
     pd.set_option('display.width', 200)
 
 
-
 def transform_exog_to_model(fit, exog):
     '''
     From StackOverflow
     '''
     transform=True
     self=fit
-    # The following is lifted straight from statsmodels.base.model.Results.predict()
     if transform and hasattr(self.model, 'formula') and exog is not None:
         from patsy import dmatrix
-        exog = dmatrix(self.model.data.design_info.builder, # removed .orig_exog
+        exog = dmatrix(self.model.data.design_info.builder,
                        exog)
     if exog is not None:
         exog = np.asarray(exog)
         if exog.ndim == 1 and (self.model.exog.ndim == 1 or
                                self.model.exog.shape[1] == 1):
             exog = exog[:, None]
-        exog = np.atleast_2d(exog)  # needed in count model shape[1]
+        exog = np.atleast_2d(exog)
     return exog
+
 
 class Load_Timer():
     def __init__(self, name=None):
@@ -54,6 +52,7 @@ class Load_Timer():
     def print_time(self, round_to=3):
         print(self.name + 'ime:', round(time()-self.start, round_to), 's')
 
+
 def time_wrap(func, title=None):
     if title is None:
         lt = Load_Timer(str(func))
@@ -62,6 +61,7 @@ def time_wrap(func, title=None):
     return_content = func()
     lt.print_time()
     return return_content
+
 
 def get_Bs_str(Bs):
     if Bs > 1e9:
@@ -72,6 +72,7 @@ def get_Bs_str(Bs):
         return f'{Fore.LIGHTYELLOW_EX}{Bs / 1e3:.0f} KB{Fore.RESET}'
     else:
         return f'{Fore.LIGHTBLUE_EX_EX}{Bs} B{Fore.RESET}'
+
 
 def pickle_wrap(filename, callback, easy_override=False):
     if os.path.isfile(filename) and not easy_override:
@@ -90,14 +91,14 @@ def pickle_wrap(filename, callback, easy_override=False):
               f'File size {get_Bs_str(os.path.getsize(filename))}')
         return output
 
-def abline(slope, intercept, subplot_ax):
 
+def abline(slope, intercept, subplot_ax):
     x_vals = np.array(subplot_ax.get_xlim())
     y_vals = intercept + slope * x_vals
     subplot_ax.plot(x_vals, y_vals, '-')
 
+
 def flatten(itr, l=False):
-    # from: https://stackoverflow.com/questions/952914/how-to-make-a-flat-list-out-of-list-of-lists
     if l:
         t = list()
     else:
@@ -112,6 +113,7 @@ def flatten(itr, l=False):
             t += (e,)
     return t
 
+
 def flatten_lineups(list_itr, l=False, as_itr=False):
     return_list = []
     for itr in list_itr:
@@ -121,30 +123,34 @@ def flatten_lineups(list_itr, l=False, as_itr=False):
             return_list.append(flatten(itr, l=l))
     if not as_itr: return return_list
 
+
 def rando_drop(l, p_drop):
     l_pruned = []
     for item in l:
         if random() > p_drop:
             l_pruned.append(item)
-    print('\tRemaining after random drop of {p:.0%}: {n:.1e}'.format(p=p_drop, n=len(l_pruned)))
+    print(f'\tRemaining after random drop of {p_drop:.0%}: {len(l_pruned):.1e}')
     return l_pruned
+
 
 def partition (list_in, n):
     shuffle(list_in)
     return [list_in[i::n] for i in range(n)]
 
+
 def forcibly_sort(ar_out, max_rank):
     ar_out_high_on_top = np.sort(ar_out, axis=0)[::-1, :]
     ar_out_high_on_bottom = np.sort(ar_out, axis=0)
     where_flip = ar_out[0, :] > ar_out[max_rank-1, :]
-    ar_out_ordered = np.append(ar_out_high_on_bottom[:, ~where_flip], ar_out_high_on_top[:, where_flip], axis=1)
-    #ar_out = np.array([ar_out, ar_out_ordered]).mean(axis=0)
+    ar_out_ordered = np.append(ar_out_high_on_bottom[:, ~where_flip],
+                               ar_out_high_on_top[:, where_flip], axis=1)
     return ar_out_ordered
 
 
 def gmean(ar, axis=0):
     ar_log = np.log(ar)
     return np.exp(ar_log.mean(axis=axis))
+
 
 def empty_gen():
     yield from ()

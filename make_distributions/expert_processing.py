@@ -5,9 +5,9 @@ from matplotlib import pyplot as plt
 from scipy import stats as stats
 from tqdm import tqdm
 
-
 '''
 This file just contains some functions used to process the expert rankings
+Not commented
 '''
 
 

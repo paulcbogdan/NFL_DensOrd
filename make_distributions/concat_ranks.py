@@ -29,7 +29,7 @@ def concat_all_rank_neighbors(df, ar, max_rank, ar_year, num_neighbors_concat,
     :param x_tiles: Cumulative density is calculated discretely for the
          0th percentile, 0.1th percentile, etc. x_tiles specifies the
          discrete percentiles used.
-    :param concat_correction: If non-zero, a concatenation correction is applied.
+    :param concat_correction: If non-zero, a concatenation correction is applied
         See the white paper for details on why biases arise at high ranks.
         Although this specific correction is not described in the white paper
         it is similar to the correction used for vertical smoothing, which
@@ -95,8 +95,10 @@ def concat_rank_w_neighbors(rank0, ar, ar_rank0, effect_if_worse_abs,
             n_nan = np.count_nonzero(np.isnan(ar_i))
             ar_year_i = ar_year_i[~np.isnan(ar_i)]
             ar_i = ar_i[~np.isnan(ar_i)]
-            if apply_correction and rank0 < num_neighbors_concat and rank0_i > 2*rank0:
-                ar_rank0 += apply_concat_correction(ar_i, rank0, rank0_i, effect_if_worse_abs,
+            if apply_correction and rank0 < num_neighbors_concat and \
+                    rank0_i > 2*rank0:
+                ar_rank0 += apply_concat_correction(ar_i, rank0, rank0_i,
+                                                    effect_if_worse_abs,
                                                     weight=concat_correction)
             else:
                 ar_rank0 += list(ar_i)
@@ -141,10 +143,13 @@ def get_pt_rank_booster(df, expert, pos, x_tiles, do_quick=False):
     '''
 
     ar_rank_tile = get_cum_dist_T(df, expert, pos, x_tiles)
-    if not do_quick: ar_rank_tile = smooth_horizontal(ar_rank_tile, 50, 'nearest')
-    ar_d1 = get_percentile_to_pts_gradient(ar_rank_tile) # rank i-1 [better] minus rank i. i.e., improvement of
-                                                         # being higher rank
-    if not do_quick: ar_d1 = scipy.ndimage.gaussian_filter(ar_d1, (6, ar_d1.shape[1]/300)) # cross validate!!
+    if not do_quick: ar_rank_tile = smooth_horizontal(ar_rank_tile, 50,
+                                                      'nearest')
+
+    # rank i-1 [better] minus rank i. i.e., improvement of being higher rank
+    ar_d1 = get_percentile_to_pts_gradient(ar_rank_tile)
+    if not do_quick: ar_d1 = scipy.ndimage.gaussian_filter(ar_d1,
+                                    (6, ar_d1.shape[1]/300)) # cross validate!!
 
     effect_if_worse_dif = {}
     effect_if_worse_abs = {}
@@ -152,7 +157,6 @@ def get_pt_rank_booster(df, expert, pos, x_tiles, do_quick=False):
     for input_rank in range(ar_d1.shape[0]):
         for tile in range(ar_d1.shape[1]):
             baseline_pt = ar_rank_tile[input_rank, tile]
-
             rolling_sum = 0
             if (input_rank, int(baseline_pt), 1) in effect_if_worse_dif:
                 continue
@@ -160,19 +164,30 @@ def get_pt_rank_booster(df, expert, pos, x_tiles, do_quick=False):
                 worse_rank = input_rank + rank_dif
                 if worse_rank >= ar_d1.shape[0]: continue
                 rolling_sum += ar_d1[worse_rank, tile]
-                effect_if_worse_dif[(input_rank, int(baseline_pt), rank_dif)] = -rolling_sum
-                effect_if_worse_abs[(input_rank, int(baseline_pt), worse_rank)] = -rolling_sum
-        for pt in list(range(5)): # sometimes these won't be filled in by the actual input_data
+                effect_if_worse_dif[(input_rank, int(baseline_pt),
+                                     rank_dif)] = -rolling_sum
+                effect_if_worse_abs[(input_rank, int(baseline_pt),
+                                     worse_rank)] = -rolling_sum
+
+        # sometimes these won't be filled in by the actual input_data
+        for pt in list(range(5)):
             for rank_dif in range(5):
                 if (input_rank, int(pt), rank_dif) not in effect_if_worse_dif:
-                    effect_if_worse_dif[(input_rank, int(pt), rank_dif)] = 0
-                    effect_if_worse_abs[(input_rank, int(pt), input_rank+rank_dif)] = 0
+                    effect_if_worse_dif[(input_rank, int(pt),
+                                         rank_dif)] = 0
+                    effect_if_worse_abs[(input_rank, int(pt),
+                                         input_rank+rank_dif)] = 0
 
-        for pt in list(range(40, 56)): # sometimes these won't be filled in by the actual input_data
+        # sometimes these won't be filled in by the actual input_data
+        for pt in list(range(40, 56)):
              for rank_dif in range(5):
-                 if (input_rank, int(pt), rank_dif) not in effect_if_worse_dif and (input_rank, pt-1, rank_dif) in effect_if_worse_dif:
-                     effect_if_worse_dif[(input_rank, int(pt), rank_dif)] = effect_if_worse_dif[(input_rank, pt-1, rank_dif)]
-                     effect_if_worse_abs[(input_rank, int(pt), input_rank+rank_dif)] = effect_if_worse_dif[(input_rank, pt-1, rank_dif)]
+                 if (input_rank, int(pt), rank_dif) not in effect_if_worse_dif \
+                        and (input_rank, pt-1, rank_dif) in effect_if_worse_dif:
+                     effect_if_worse_dif[(input_rank, int(pt), rank_dif)] = \
+                         effect_if_worse_dif[(input_rank, pt-1, rank_dif)]
+                     effect_if_worse_abs[(input_rank, int(pt),
+                                          input_rank+rank_dif)] = \
+                         effect_if_worse_dif[(input_rank, pt-1, rank_dif)]
 
     effect_if_worse_abs = interpolate_effect_if(effect_if_worse_abs)
     return effect_if_worse_dif, effect_if_worse_abs
@@ -193,26 +208,30 @@ def get_percentile_to_pts_gradient(ar):
     return ar
 
 
-def apply_concat_correction(l, rank0_target, rank0_i, effect_if_worse_abs, weight=1.0):
+def apply_concat_correction(l, rank0_target, rank0_i, effect_if_worse_abs,
+                            weight=1.0):
     '''
-    Applies the concatenation correction.
+    Applies the concatenation correction. Not in white paper.
     '''
-    print(f'Boost {rank0_target=}, {rank0_i=}: {effect_if_worse_abs[(rank0_target, int(10), rank0_i)]}')
-    if rank0_i > rank0_target: # if the target is better than the rank_i, then make rank_i better
-        return map(lambda x: x - weight*effect_if_worse_abs[(rank0_target, int(x), rank0_i)], l)
+    # if the target is better than the rank_i, then make rank_i better
+    if rank0_i > rank0_target:
+        return map(lambda x: x -
+            weight*effect_if_worse_abs[(rank0_target, int(x), rank0_i)], l)
     else: #if the target is wrose than the rank_i, then make rank_i worse
-        return map(lambda x: x + weight*effect_if_worse_abs[(rank0_i, int(x), rank0_target)], l)
+        return map(lambda x: x +
+            weight*effect_if_worse_abs[(rank0_i, int(x), rank0_target)], l)
 
 
 def interpolate_effect_if(effect_d):
     '''
-    Used for the neighbor concatenation correction.
+    Used for the neighbor concatenation correction. Not in white paper.
     '''
     print('Interpolating the pt booster')
     from scipy.interpolate import griddata as gd
     keys = np.array(list(effect_d.keys()))
     vals = np.array(list(effect_d.values()))
-    Xi, Yi, Zi = np.meshgrid(range(0, max(keys[:, 0]) + 10), range(-10, max(keys[:, 1]) + 30),
+    Xi, Yi, Zi = np.meshgrid(range(0, max(keys[:, 0]) + 10),
+                             range(-10, max(keys[:, 1]) + 30),
                              range(0, max(keys[:, 2]) + 10))
     Xi = Xi.flatten()
     Yi = Yi.flatten()
@@ -227,13 +246,14 @@ def interpolate_effect_if(effect_d):
 
 def interpolate_effect_if_d(effect_d, num_dims=4):
     '''
-    Used for the neighbor concatenation correction. 
+    Used for the neighbor concatenation correction. Not in white paper.
     '''
     print(f'Interpolating the booster: num_dims = {num_dims}')
     from scipy.interpolate import griddata as gd
     keys = np.array(list(effect_d.keys()))
     vals = np.array(list(effect_d.values()))
-    ranges = [range(min(keys[:, i])-2, max(keys[:, i]) + 30) for i in range(num_dims)]
+    ranges = [range(min(keys[:, i])-2,
+                    max(keys[:, i]) + 30) for i in range(num_dims)]
     keys_grid = np.meshgrid(*ranges)
     for i in range(len(keys_grid)):
         keys_grid[i] = keys_grid[i].flatten()
@@ -248,17 +268,13 @@ def interpolate_effect_if_d(effect_d, num_dims=4):
 
 def get_cum_dist_T(df, expert, pos, x_tiles, max_rank=None):
     '''
-    returns matrix of size (max_rank, tiles), with values being fantasy points for a given (rank, percentile)
-    :param df:
-    :param expert:
-    :param pos:
-    :param x_tiles:
-    :return:
+    Used for the neighbor concatenation correction. Not in white paper.
     '''
 
     df_ = df.loc[pos, :, :, :]
     df_.dropna(subset=[expert], inplace=True)
-    df_pivot = df_.pivot(index=expert, columns=['year_', 'week_'], values='points') # rows = rank, columns = week
+    df_pivot = df_.pivot(index=expert, columns=['year_', 'week_'],
+                         values='points')
     ar = np.array(df_pivot)
     ar.sort(axis=1)
     ar_out = []
@@ -269,7 +285,9 @@ def get_cum_dist_T(df, expert, pos, x_tiles, max_rank=None):
         if len(y) < 15: continue
         n_weeks = len(y)
         x_orig = np.linspace(1/n_weeks, 1-1/n_weeks, n_weeks)
-        spl = scipy.interpolate.interp1d(x_orig, y, kind='nearest', bounds_error=False, fill_value='extrapolate')
+        spl = scipy.interpolate.interp1d(x_orig, y, kind='nearest',
+                                         bounds_error=False,
+                                         fill_value='extrapolate')
         y = spl(x_tiles)
         ar_out.append(y)
     return np.array(ar_out)

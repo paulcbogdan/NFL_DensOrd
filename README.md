@@ -47,6 +47,7 @@ These files also organize the data.
 I prepared documentation for the most pivotal pieces of code, including: 
 * `organize.organize_input.py`
 * `scrape.scrape_fantasypros.py`
+* `scrape.scrape_scores.py`
 
 ### Creating the distributions
 Based on the scraped data, the files in directory `make_distributions` create probability distributions, 
@@ -63,9 +64,12 @@ I prepared documentation for the most pivotal pieces of code, including:
 
 `setup_expert_distributions.py` runs the pipeline, it calls all the functions below.
 
-Creating a distribution involves first scraping historic ranking and scoring data 
-using `scrape.scrape_fantasypros.py`. The scraped data are then organized into 
-Pandas dataframes using `scrape.organize_input.py`.
+Creating a distribution involves first scraping historic expert ranking data 
+using `scrape.scrape_fantasypros.py` and scraping historic fantasy points 
+performance data using `scrape.scrape_scores.py`. The scraped data are then 
+organized into a single Pandas dataframe using `scrape.organize_input.py`. Each
+row of the dataframe represents one player's performance in one week, and their
+expert projections for that week.
 
 After the data are loaded, the dataframes data are further organized into numpy arrays. 
 Then, functions from `density.py` are called to create the density distributions.

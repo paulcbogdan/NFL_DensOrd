@@ -1,8 +1,10 @@
+import os
+
 import dill
 import numpy as np
 
 from make_distributions import plot as plot
-import os
+
 
 class Expert_Distribution:
     '''

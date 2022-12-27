@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from make_distributions import plot as plot
 from make_distributions.concat_ranks import concat_all_rank_neighbors
-from make_distributions.smooth import normalize_horizontal, smooth_horizontal, \
+from make_distributions.smooth import smooth_horizontal, \
     smooth_vertical
 
 
@@ -38,7 +38,8 @@ def get_density_array(df, experts_used, pos, x_density_pts, x_tiles,
     :param concat_correction:
     :param vert_smooth_amt:
     :param vert_smooth_correct:
-    :return:
+    :return: ar_density, a 2D matrix representing all the density distributions
+        Corresponds to matrix P' on page 4 of the white paper
     '''
     print(f'{Fore.LIGHTGREEN_EX}get_rank_pts_to_density{Fore.RESET}'
           f'(df, expert={Fore.LIGHTRED_EX}{experts_used}{Fore.RESET},'
@@ -89,12 +90,12 @@ def get_array_from_df(df_pivot, rand_mult=5):
        - each row is an expert rank
        - each column is a timepoint (week, year)
        - ar[i, t] correspond to the ith ranked player's points scored at time t
-
     Also creates ar_year, which is a matrix of identical shape to ar, which
         specifies the year of each entry in ar. This is used for a
         cross-validation step, where the data are split into folds based on
         their year.
         ar_year[i, t] corresponds to the year of ar[i, t]
+
     :param df: Input dataframe
         Corresponds to df_train in setup_expert_distributions.py
     :param pos:
@@ -117,12 +118,22 @@ def jiggle_array(ar, ar_year, rand_mult):
         estimation. To fix this, we will add a small amount of random noise to
         the data, so that the data are no longer discrete. The data are also
         duplicated, each with a different random noise added.
+    If rand_mult=5, then one element of ar containing 11.1 will be changed
+        into five elements in ar_jiggled. If ar is an I x T matrix, and
+        ar_jiggled is an I x (5*T) matrix.
+
+    :param ar: Data matrix, see get_array_from_df(...)
+    :param x_pts: Discrete points represented by columns of ar
+    :param ar_year: Year matrix, see get_array_from_df(...). ar_year[i, t]
+        corresponds to the year for ar[i, t]
+    :return: ar_jiggled, ar_year_repeated
     '''
 
-    ar = np.repeat(ar, rand_mult, axis=1)
-    ar += np.random.uniform(-0.05, 0.05, size=ar.shape)
-    ar_year = np.repeat(ar_year, rand_mult, axis=1)
-    return ar, ar_year
+    ar_repeated = np.repeat(ar, rand_mult, axis=1)
+    ar_jiggled = ar_repeated + np.random.uniform(-0.05, 0.05,
+                                                 size=ar_repeated.shape)
+    ar_year_repeated = np.repeat(ar_year, rand_mult, axis=1)
+    return ar_jiggled, ar_year_repeated
 
 
 def fit_density_constant_bandwidth(ar, x_pts, max_rank=None, bandwidth=0.8,
@@ -130,8 +141,9 @@ def fit_density_constant_bandwidth(ar, x_pts, max_rank=None, bandwidth=0.8,
     '''
     Calculates kernel density while using a constant kernel bandwidth for
         every rank.
-
-    (See functions that call this function for more details)
+    The code below refers to 'rank0' rather than 'rank' to emphasize that the
+        rank is 0-indexed, which differs from how fantasy ranks are typically
+        reported (1-indexed) and how they are described in the white paper.
 
     :param ar: Data matrix, see get_array_from_df(...)
     :param x_pts: Discrete points represented by columns of ar
@@ -164,17 +176,16 @@ def fit_density_CV_bandwidth(ar, x_pts, ar_year, max_rank=None,
     Calculates kernel density while using a constant kernel bandwidth for
         every rank.
 
-    (See functions that call this function for more details)
-
     :param ar: Data matrix, see get_array_from_df(...)
     :param x_pts: Discrete points represented by columns of ar
+    :param ar_year: Year matrix, see get_array_from_df(...). ar_year[i, t]
+        corresponds to the year for ar[i, t]
     :param max_rank: Highest (worst) rank analyzed
     :param bandwidth: Constant width
     :param exp: If true, then the density is exponentiated
     :param kernel: Kenrel type
     :return: ar_density (kernel density represented as a matrix)
     '''
-
     if max_rank is None: max_rank = ar.shape[0]
     ar_density = []
     iterable = [(ar_year[rank0, :], ar[rank0, :], rank0, kernel)
@@ -183,7 +194,7 @@ def fit_density_CV_bandwidth(ar, x_pts, ar_year, max_rank=None,
     with Pool(6) as P:
         print('Multiprocessing map')
         grids = P.starmap(get_optimal_rank_bandwidth, tqdm(iterable,
-                                                           desc='multiprocess CV density'))
+                                               desc='multiprocess CV density'))
     for grid, rank0 in grids:
         densities = grid.score_samples(np.expand_dims(x_pts, axis=1))
         if exp:
@@ -200,6 +211,16 @@ def get_optimal_rank_bandwidth(groups, y, rank0, kernel='exponential'):
     '''
     Finds optimal bandwidth for density estimation of a specific rank, using
         cross-validation
+    Note that this function uses GroupKFold cross-validation, which organizes
+        the data into folds based on the year of the data. These year data
+        are managed by ar_year in the fit_density_CV_bandwidth(...) which calls
+        the present function.
+
+    :param groups: Year of each entry in y (ar_year[rank0, :])
+    :param y: Data for a specific rank (ar[rank0, :])
+    :param rank0: Rank of y
+    :param kernel: Kernel type
+    :return: grid (GridSearchCV object) and the unchanged rank0 again
     '''
     groups = groups[~np.isnan(y)]
     y = y[~np.isnan(y)]
@@ -212,3 +233,14 @@ def get_optimal_rank_bandwidth(groups, y, rank0, kernel='exponential'):
     grid.fit(np.expand_dims(y, axis=1), groups=groups)
     print(f'Best params: {rank0}: {grid.best_params_}')
     return grid, rank0
+
+
+def normalize_horizontal(ar_density):
+    '''
+    Normalizes the horizontal axis of an array so that each row sums to 1.
+
+    :param ar_density: a 2D matrix representing all the density distributions
+        Corresponds to matrix P' on page 4 of the white paper
+    '''
+    assert np.min(ar_density) > -.00000001, 'Can\'t normalize log-scaled ar'
+    return ar_density / ar_density.sum(axis=1)[:, None]

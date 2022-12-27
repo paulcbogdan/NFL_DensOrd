@@ -1,20 +1,19 @@
+import os
 from pathlib import Path
 
-import matplotlib
 import numpy as np
+from scipy import  ndimage
+import matplotlib
 from matplotlib import pyplot as plt, cm
 from matplotlib.colors import Normalize
-import os
-
-from scipy import  ndimage
-
 import matplotlib.colors as mcolors
 
 
 def plot_density(ar_density, x_pts, pos='RB', extra_str='', save_plot=False,
                  fp=None, cumdens=False, black10=False, num_super_ranks=0):
     '''
-    Plots the density and cumulative density figures throughout the white paper
+    Plots the density and cumulative density illustrations (Figures 2-7)
+        throughout the white paper
 
     :param ar_density: 2D density array, where axis=0 is the rank,
                        and axis=1 indexes the points scored
@@ -28,9 +27,10 @@ def plot_density(ar_density, x_pts, pos='RB', extra_str='', save_plot=False,
     :param fp: Output filepath, if None, creates a filepath
     :param cumdens: (Cumulative density)
         If False, plots density. If True, plots cumulative density
-    :param black10: If True plots ranks % 10 == 0 in black
+    :param black10: If True, plots ranks % 10 == 0 in black.
+        black10 was not used for the white paper figures
     :param num_super_ranks: For plotting below zero hypothetical ranks
-                            (see white paper)
+                            (see white paper Figure 5)
     '''
     fig_dir = r'make_distributions\figs'
 
@@ -70,10 +70,12 @@ def plot_density(ar_density, x_pts, pos='RB', extra_str='', save_plot=False,
     else:
         for rank0 in range(ar_density.shape[0] - 1, -1, -1):
             color = cmap(rank0 / ar_density.shape[0])
-            plt.plot(x_pts, ar_density[rank0, :] * 100, c=color, linewidth=0.95)
+            plt.plot(x_pts, ar_density[rank0, :] * 100, c=color,
+                     linewidth=0.95)
         if black10:
             for rank0 in range(0, ar_density.shape[0], 10):
-                plt.plot(x_pts, ar_density[rank0, :] * 100, c='k', linewidth=0.95)
+                plt.plot(x_pts, ar_density[rank0, :] * 100, c='k',
+                         linewidth=0.95)
         plt.ylabel('Density', fontsize=16)
         plt.xlabel('Fantasy Points', fontsize=16)
         ax = plt.gca()
@@ -85,37 +87,35 @@ def plot_density(ar_density, x_pts, pos='RB', extra_str='', save_plot=False,
                      linewidth=0.95)
 
 
-    if num_super_ranks > 0:
+    if num_super_ranks > 0: # For plotting sub-zero hypothetical ranks (Fig. 5)
         cbar = plt.colorbar(cm.ScalarMappable(cmap=cmap,
                                               norm=Normalize(vmin=-24, vmax=60),
-                                              ),
-                            ticks=[-24, -12, 1, 12, 24, 36, 48, 60])
+                                              ), ticks=[-24, -12, 1, 12,
+                                                        24, 36, 48, 60])
         cbar.ax.set_yticklabels([f'{pos}(-24)', f'{pos}(-12)', f'{pos}1',
                                  f'{pos}12', f'{pos}24', f'{pos}36', f'{pos}48',
                                  f'{pos}60'])
 
-    elif ar_density.shape[0] == 48:
+    elif ar_density.shape[0] == 48: # For plotting RBs/WRs up to 48
         cbar = plt.colorbar(cm.ScalarMappable(cmap=cmap,
                                               norm=Normalize(vmin=1,
                                                              vmax=ar_density.shape[0]),
-                                              ),
-                            ticks=[1, 12, 24, 36, 48])
+                                              ), ticks=[1, 12, 24, 36, 48])
         cbar.ax.set_yticklabels([f'{pos}1', f'{pos}12', f'{pos}24', f'{pos}36',
                                  f'{pos}48'])
-    elif ar_density.shape[0] == 24:
+    elif ar_density.shape[0] == 24: # For plotting QBs/TEs/DSTs up to 24
         cbar = plt.colorbar(cm.ScalarMappable(cmap=cmap,
                                               norm=Normalize(vmin=1,
                                                              vmax=ar_density.shape[0]),
-                                              ),
-                            ticks=[1, 6, 12, 18, 24])
+                                              ), ticks=[1, 6, 12, 18, 24])
         cbar.ax.set_yticklabels([f'{pos}1', f'{pos}6', f'{pos}12', f'{pos}18',
                                  f'{pos}24'])
     else:
         cbar = plt.colorbar(cm.ScalarMappable(cmap=cmap,
-                                              norm=Normalize(vmin=1,
-                                                             vmax=ar_density.shape[0]),
-                                              )
-                            )
+                                              norm=Normalize(
+                                                  vmin=1,
+                                                  vmax=ar_density.shape[0]),
+                                              ))
     cbar.ax.invert_yaxis()
     title = f'Position: {pos}{extra_str}'
     plt.title(title, fontsize=16)
@@ -130,7 +130,8 @@ def plot_density(ar_density, x_pts, pos='RB', extra_str='', save_plot=False,
     if save_plot:
         print('SAVING PLOT:')
 
-        if fp is None: fp = os.path.join(fig_dir, title.replace(':', '').replace(' ', '_') + '.png')
+        if fp is None: fp = os.path.join(fig_dir,
+                            title.replace(':', '').replace(' ', '_') + '.png')
         print(f'{os.path.join(os.getcwd(), fp)=}')
         print(f'{fp=}')
         plt.tight_layout()
@@ -180,7 +181,8 @@ def plot_pre_density(ar, pos, max_rank):
                  alpha=1-abs(rank0 / max_rank - 0.5))
 
     plt.gca().fill_betweenx(range(len(mean_line)),
-                            lower_line, upper_line, zorder=100, alpha=0.12, color='k')
+                            lower_line, upper_line, zorder=100, alpha=0.12,
+                            color='k')
     plt.plot(mean_line, range(len(mean_line)),
              color='k', linewidth=2.5, zorder=3)
     print(mean_line)
@@ -225,9 +227,7 @@ def save_ED_plot(ED, test_size, params_fn, test_acc, max_rank,
                                                       exist_ok=True)
     Path(os.path.join(out_dir, 'EDs', fn_dir)).mkdir(parents=True,
                                                      exist_ok=True)
-
     fn = os.path.join(fn_dir, fn)
-
     ED.set_fn(fn)
     ED.plot_density(save_plot=True, max_rank=max_rank)
     ED.plot_density(save_plot=True, cumdens=True, max_rank=max_rank)
