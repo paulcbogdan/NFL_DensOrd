@@ -55,7 +55,7 @@ predicting player performance based on their expert ranking. These are described
 I prepared documentation for the most pivotal pieces of code, including: 
 * `setup_expert_distributions.py`
 * `density.py`
-* `concat_ranks.py`
+* `rank_concat.py`
 * `smooth.py`
 * `test_accuracy.py`
 * `plot.py`
@@ -73,7 +73,7 @@ expert projections for that week.
 
 After the data are loaded, the dataframes data are further organized into numpy arrays. 
 Then, functions from `density.py` are called to create the density distributions.
-In creating the distributions, `density.py` calls functions from `concat_ranks.py` 
+In creating the distributions, `density.py` calls functions from `rank_concat.py` 
 to carry out the concatenation procedures described in the white paper. 
 After this, the distributions are smoothed using functions from `smooth.py`. 
 Next, the accuracy of the distributions is tested using cross-validation and 

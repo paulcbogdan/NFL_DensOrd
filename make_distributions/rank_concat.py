@@ -1,3 +1,10 @@
+'''
+Much of this file describes a procedure which is not described in the
+    white paper. It is similar to the vertical smoothing correction.
+    It corrects for edge-related biases arising at high ranks.
+Code related to that correction is not commented.
+'''
+
 import os
 
 import numpy as np

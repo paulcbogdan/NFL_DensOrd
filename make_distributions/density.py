@@ -7,7 +7,7 @@ from sklearn.neighbors import KernelDensity
 from tqdm import tqdm
 
 from make_distributions import plot as plot
-from make_distributions.concat_ranks import concat_all_rank_neighbors
+from make_distributions.rank_concat import concat_all_rank_neighbors
 from make_distributions.smooth import smooth_horizontal, \
     smooth_vertical
 
